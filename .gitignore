@@ -1,1 +1,10 @@
+# ide / editors
 .idea/
+.vscode/
+
+# Data about cluster
+data/
+stats/
+
+# Logs
+*.log
