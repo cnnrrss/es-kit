@@ -21,13 +21,6 @@ SSH in
 
 `docker exec -it es01 /bin/bash`
 
-Get mem info
-
-`cat /proc/meminfo`
-
-Proc
-
-`ps` or `top`
 
 ### Get info from cluster
 
@@ -66,8 +59,6 @@ PUT /index/_settings
 }
 ```
 
-
-
 ### Config
 
 3 settings:
@@ -100,7 +91,6 @@ Source Data * (1 + Number of Replicas) * 1.45 = Minimum Storage Requirement
 
 (Source Data + Room to Grow) * (1 + Indexing Overhead) / Desired Shard Size = Approximate Number of Primary Shards
 
-
 ### Caching
 
 Shard request cache
@@ -131,11 +121,9 @@ curl -X GET "localhost:9200/my_index/_search?request_cache=true&pretty" -H 'Cont
 '
 ```
 
-
 #### Warnings and Errors Observed
 
 `OpenJDK 64-Bit Server VM warning: Option UseConcMarkSweepGC was deprecated in version 9.0 and will likely be removed in a future release.`
-
 
 ### Settings to try
 
@@ -146,12 +134,12 @@ curl -X GET "localhost:9200/my_index/_search?request_cache=true&pretty" -H 'Cont
 - Unset or increase the refresh interval
 - Always use local storage, remote filesystems such as NFS or SMB should be avoided.
 
-
 ### Out of memory errors
 
 Very often it is caused by something like a bad query, or indexing at a rate that is higher than the cluster is provisioned for.
 
 ### Heap dump
+
 By default working directory of Elasticsearch. Can be explicit: `-XX:HeapDumpPath=<path>` in jvm.options
 
 #### ES Circuit Breaker:

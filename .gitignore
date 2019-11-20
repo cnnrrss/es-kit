@@ -1,6 +1,7 @@
 # ide / editors
 .idea/
 .vscode/
+*__pycache__*
 
 # Data about cluster
 data/

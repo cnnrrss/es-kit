@@ -8,20 +8,29 @@ from locust import HttpLocust, TaskSet, task, between
 
 # Load json file
 def random_line():
-    file_name = random.choice(os.listdir("./searches"))
-    lines = open(file_name).read().splitlines()
+    lines = open('searches_small.txt').read().splitlines()
     return random.choice(lines)
 
+
+def random_post():
+    lines = open('index_requests').read().splitlines()
+    return random.choice(lines)
 
 class UserTasks(TaskSet):
     def __init__(self, parent):
         super(UserTasks, self).__init__(parent)
 
-    @task
+    @task(4)
     def get_random_payload(self):
         req = random_line().split('||')
         if len(req) == 2:
-            self.client.get('http://search5:9200'+req[0], data=req[1].replace('@@@@', '\n'))
+            self.client.get('http://localhost:9200'+req[0], data=req[1].replace('@@@@', '\n').encode('utf8'))
+
+    @task(1)
+    def get_random_post(self):
+        req = random_post().split('||')
+        if len(req) == 2:
+            self.client.post('http://localhost:9200'+req[0], data=req[1].replace('@@@@', '\n').encode('utf8'))
 
 
 class WebsiteUser(HttpLocust):

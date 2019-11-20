@@ -13,7 +13,7 @@ query_types=('"query"', '"index"', '"sort"')
 for f in glob.glob('data/sample/*.log'):
     for line in open(f):
         if '_msearch' in line:
-            loc = line.replace('k3', 'k3_20191118144323')
+            loc = line.replace('<old-index>', '<new-index>')
             queries = []
         if line.startswith('{'):
             queries.append(line)
