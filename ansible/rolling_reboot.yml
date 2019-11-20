@@ -1,0 +1,61 @@
+- hosts: prod-all-nodes
+
+# Important to run the procedure sequentially in all servers defined in prod-all-nodes
+  serial: 1
+
+  vars:
+     es_client_server: es-client.example.net 
+
+  tasks:
+
+# Disable shard allocation
+
+  - name: "Set cluster routing allocation to none {{ansible_hostname}}"
+    action: "shell curl -XPUT http://{{ es_client_server }}:9200/_cluster/settings -d '{\"transient\" : {\"cluster.routing.allocation.enable\" : \"none\" }}'"
+    register: result
+    until: result.stdout.find('"acknowledged"') != -1
+    retries: 200
+    delay: 3
+    changed_when: result.stdout.find('"acknowledged":true') != -1
+
+# Index Flush sync 
+
+  - name: "Index Flush sync - {{ansible_hostname}}"
+    action: "shell curl -s -m 2 http://{{ es_client_server }}:9200/_flush/synced?pretty"
+    register: result
+    until: result.rc == 0
+    retries: 200
+    delay: 3
+
+# restart elasticsearch process
+
+  - name: "Elasticsearch restart {{ansible_hostname}}"
+    service: name=elasticsearch state=restarted
+
+# Wait for Elasticsearch node to come back into cluster
+
+  - name: "Wait for elasticsearch running on node {{ansible_hostname}}"
+    action: "shell curl -s -m 2 http://{{ es_client_server }}:9200/_cat/nodes?h=name | tr -d ' ' | grep -E '^{{ansible_hostname}}' "
+    register: result
+    until: result.rc == 0
+    retries: 200
+    delay: 3
+
+# Enable shard allocation
+
+  - name: "Set cluster routing allocation to all {{ansible_hostname}}"
+    action: "shell curl -s -m 2 -XPUT http://{{ es_client_server }}:9200/_cluster/settings -d '{\"transient\" : {\"cluster.routing.allocation.enable\" : \"all\" }}'"
+    register: result
+    until: result.stdout.find("acknowledged") != -1
+    retries: 200
+    delay: 3
+    changed_when: result.stdout.find('"acknowledged":true') != -1
+
+# Wait until cluster status is green
+
+  - name: "Wait for green cluster status {{ansible_hostname}}"
+    action: "shell curl -s -m 2 http://{{ es_client_server }}:9200/_cat/health | cut -d ' ' -f 4"
+    register: result
+    until: result.stdout.find("green") != -1
+    retries: 5000
+    delay: 10

@@ -1,0 +1,11 @@
+01 05 * * * root LOGFILE=/var/log/curator/snapshots-delete-$(/bin/date +\%Y_\%m_\%d-\%Hh\%Mm\%Ss) && \
+/usr/bin/curator_cli \
+--timeout=86400 \
+--logfile $LOGFILE \
+--host es-client.example.org delete_snapshots \
+--repository="Daily_snapshot" \
+--retry_interval=600 \
+--retry_count=4 \
+--filter_list '[{"filtertype":"age","source":"creation_date","direction":"older","unit":"days","unit_count":7}]' && \
+/bin/rm -f /var/log/curator/snapshots-delete-latest && \
+/usr/bin/ln -s $LOGFILE /var/log/curator/snapshots-delete-latest

@@ -1,21 +1,42 @@
-# Notes
 
-k3
 
-- # of docs: 2,224,357
-	- # of docs deleted: 1,143,301
-- store.size: 20.8gb
-- pri.stor.size: 5.2gb
-- # of shards: 4
-- # of replicas: 1
-- # active primaries: 4
-- # of total shards: 16 ((4 * 3) + 4)
+
+### Stats
+
+Bravo:
+- avg doc size: 17.2kb
+
+Prod:
+- \# of docs: 2.2mil
+- \# of docs deleted: 1.43mil
+- avg doc size: 24.5kb
+- avg shard size 301.mb
+- primary storage size: 5.2gb / 4 == 1.3gb per shard.. should be good and room to scale
+- total.store.size: 20.8gb
+- \# of shards: 4
+- \# of replicas: 3 <- can we change to 1?
+- \# active primaries: 4
+- \# of total shards: 16 ((4 * 3) + 4)
 - 1 node per server
+- 17x more writes than reads (13mil writes, 790k reads)
+
+**Best Practices**
+- [x] \_id fields
+- [x] not using too much field data
+	- `"doc_values" : true` by default for every possible field
+- [ ] Mapping Explosion _TBD_
+- [ ] Reduce replication for write heavy workloads
+- [ ] Avoid scripting in searches _TBD_
+- [ ] Avoid deep dggregations _TBD_
+- [ ] Using the string keyword type for identifiers [Link](https://www.elastic.co/guide/en/elasticsearch/reference/master/tune-for-search-speed.html)
+- [ ] Don't return large result sets (If necessary, use [Scroll API](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#request-body-search-scroll))
+
+- [ ] Cache script queries and pass parameters. Scripts are compiled and cached for faster execution. If the same script can be used, just with different parameters provider, it is preferable to use the ability to pass parameters to the script itself, for example:
 
 ### Potential Solutions
 - GC Tuning
 	- GCMaxPauseMillis
-	- GCNewRatio=3,4 (Modifying NewRation may be a good option to tune for latency since the GC time is the shorter even though the New area size is smaller)
+	- `GCNewRatio=3` (Modifying NewRation may be a good option to tune for latency since the GC time is the shorter even though the New area size is smaller)
 - Analyze and benchmark node / sharding / replication strategies
 	- 4 node split brain problem
 	- K3 index change replicas from 3 to 1 (this will reduce total shards from 16 to 8)
@@ -31,16 +52,6 @@ If you only need 8 GB letting the heap grow to 18 GB can make performance worse,
 ### Quick wins 
 - On k3 index change replicas from 3 to 1 (this will reduce total shards from 16 to 8)
 
-```bash
-# Set the number of shards (splits) of an index (5 by default):
-index.number_of_shards: 4
-
-# Set the number of replicas (additional copies) of an index (1 by default):
-index.number_of_replicas: 1
-```
-
-- Experiment with GCPauseMillis
-
 - Improve reindexing task
 	- Rollover daily indexes
 	- Be sure that the shards for the index you're ingesting into are distributed evenly across the data nodes
@@ -54,27 +65,28 @@ index.number_of_replicas: 1
 	- Increase the value of index.translog.flush_threshold_size
 	- Disable the _all_ field on mapping for index
 
-Bravo:
-- avg doc size: 17.2kb
+### Bulk requests
 
-Prod:
-- avg doc size: 24.5kb
-- avg shard size 301.mb
+I would recommend sending smaller bulk requests. A common recommendation is that each bulk request should not exceed around 5MB in size.
 
-### Quantitative Cluster Sizing
-- Node (server in this case)
-- Index (where docs live), contains multiple shards
-- Shard: typically a few per node. 2 types (primaries, replicas)
-	- Primary: write ops, (index, re-index, deletes, also reads)
-	- Replica: high avail, read though-put (replica do just as much work as primaries)
-		- doc being indexed will be indexed _n_ many times per replica
+**Long-lived index**: You write code that processes data into one or more Elasticsearch indices and then updates those indices periodically as the source data changes. Some common examples are website, document, and e-commerce search.
 
-How big shard? How many? How many per node? How many active per node?
-Which fields are searchable?
-Multi-fields?
-Heavy terms agg over 90 days of data?
-Sustained indexing throughout the day, or a peak?
+**Elasticsearch indexing overhead**: The on-disk size of an index varies, but is often 10% larger than the source data. After indexing your data, you can use the _cat/indices API and pri.store.size value to calculate the exact overhead. The _cat/allocation_ API also provides a useful summary.
 
-Determine breaking point of a shard
+If you decide to go cheap and combine the master and data nodes in a 3 hosts cluster, never use bulk indexing.
 
-curl -X GET "localhost:9200/k3_20191108163756/_stats?pretty"
+Get specific product:
+
+```bash
+curl -X GET "localhost:9200/<index>/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "_id": 1859587 } }
+      ]
+    }
+  }
+}
+'
+```
