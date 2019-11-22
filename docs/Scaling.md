@@ -61,6 +61,8 @@ Sustained indexing throughout the day, or a peak?
 
 - ES Circuit Breaker: They are especially prone to issues for aggregations where it is difficult to estimate in advance the amount of memory that an aggregation will consume.
 
+- **Doc values**: loaded on disk instead of memory hence significantly lowering heap pressure. Caveat is they must be loaded at index time.
+
 
 ### Useful Links
 

@@ -1,6 +1,3 @@
-
-
-
 ### Stats
 
 Bravo:
@@ -21,6 +18,9 @@ Prod:
 - 17x more writes than reads (13mil writes, 790k reads)
 
 **Best Practices**
+- [x] Is load balancer set up to round robin?
+- [ ] Doc vals > field data (Def guide p.493)
+- [ ] Preloading fielddata
 - [x] \_id fields
 - [x] not using too much field data
 	- `"doc_values" : true` by default for every possible field
@@ -30,8 +30,9 @@ Prod:
 - [ ] Avoid deep dggregations _TBD_
 - [ ] Using the string keyword type for identifiers [Link](https://www.elastic.co/guide/en/elasticsearch/reference/master/tune-for-search-speed.html)
 - [ ] Don't return large result sets (If necessary, use [Scroll API](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#request-body-search-scroll))
-
-- [ ] Cache script queries and pass parameters. Scripts are compiled and cached for faster execution. If the same script can be used, just with different parameters provider, it is preferable to use the ability to pass parameters to the script itself, for example:
+- [X] Batch index 1,000 to 5,000 docs at a time. (request size 5-15MB, at 17.2kb ~500 docs) `17.2k * 500 docs = 8.3mb`. I took an example from put_requests_log and saw bulk update of 96kb on only ~20docs. Can we bulk more? **Not at this time**
+- [ ] Cache script queries and pass parameters. Scripts are compiled and cached for faster execution. If the same script can be used, just with different parameters provider, it is preferable to use the ability to pass parameters to the script itself, for example: 
+	- Caching large queries can crash cluster, how about just script queries?
 
 ### Potential Solutions
 - GC Tuning
@@ -40,16 +41,17 @@ Prod:
 - Analyze and benchmark node / sharding / replication strategies
 	- 4 node split brain problem
 	- K3 index change replicas from 3 to 1 (this will reduce total shards from 16 to 8)
-- Understand data loss tolerance and benchmark strategies 
+- Understand data loss tolerance and benchmark strategies
 	- Are we able to use G1GC which is tuned specifically for large heap sizes >4GB but can sometimes lead to data loss.
 	- Can we disable replication during reindexing?
 	(If index can be built quickly on demand from external db is risk of potential data loss acceptable?)
 - Query optimization
--   Seeing issues such as QueryPhaseExecutionException
+- Seeing issues such as QueryPhaseExecutionException
+- Some organizations need blisteringly fast responses and opt to simply add more nodes. Other organizations are limited by budget and choose doc values and approximate aggregations.
 
 If you only need 8 GB letting the heap grow to 18 GB can make performance worse, not better.
 
-### Quick wins 
+### Quick wins
 - On k3 index change replicas from 3 to 1 (this will reduce total shards from 16 to 8)
 
 - Improve reindexing task
@@ -67,7 +69,7 @@ If you only need 8 GB letting the heap grow to 18 GB can make performance worse,
 
 ### Bulk requests
 
-I would recommend sending smaller bulk requests. A common recommendation is that each bulk request should not exceed around 5MB in size.
+I would recommend sending larger bulk requests. A common recommendation is that each bulk request should be around 5MB in size.
 
 **Long-lived index**: You write code that processes data into one or more Elasticsearch indices and then updates those indices periodically as the source data changes. Some common examples are website, document, and e-commerce search.
 
@@ -90,3 +92,12 @@ curl -X GET "localhost:9200/<index>/_search?pretty" -H 'Content-Type: applicatio
 }
 '
 ```
+
+##### Set ES_HEAP_SIZE
+
+In ubuntu/centOS
+
+`/etc/sysconfig/elasticsearch`
+
+
+`/etc/init.d/elasticsearch`

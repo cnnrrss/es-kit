@@ -57,6 +57,19 @@ PUT /index/_settings
 }
 ```
 
+**Get Mappings for Index**
+
+To retrieve mapping definitions for indices in a cluster
+
+```bash
+curl -X GET "localhost:9200/<index>/_mapping?pretty"
+```
+
+**Get mapping for specific field**
+```bash
+curl -X GET "localhost:9200/my-index/_mapping/field/<field>?pretty"
+```
+
 ### Config
 
 3 settings:
@@ -94,4 +107,30 @@ curl -X GET "localhost:9200/my_index/_search?request_cache=true&pretty" -H 'Cont
   }
 }
 '
+```
+
+### Cat API
+
+```bash
+GET /_cat
+    =^.^=
+    /_cat/allocation
+    /_cat/shards
+    /_cat/shards/{index}
+    /_cat/master
+    /_cat/nodes
+    /_cat/indices
+    /_cat/indices/{index}
+    /_cat/segments
+    /_cat/segments/{index}
+    /_cat/count
+    /_cat/count/{index}
+    /_cat/recovery
+    /_cat/recovery/{index}
+    /_cat/health
+    /_cat/pending_tasks
+    /_cat/aliases
+    /_cat/aliases/{alias}
+    /_cat/thread_pool
+    /_cat/plugins
 ```

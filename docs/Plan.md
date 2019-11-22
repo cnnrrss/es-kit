@@ -1,13 +1,5 @@
 # Plan
 
-## Questions
-
-Before resharding we must answer the following questions:
-- Index growth by size (how many new docs are created every day/week/month?)
-- Query volume, is this relatively constant? Do we expect it to grow in the future?
-- Using your own document id or letting Elasticsearch assign it automatically?
-- How has the index grown over time? It was mentioned you started adding more documents. How many were added, how quickly, how much more growth?
-- When did you scale to four nodes?
 
 ### Reshard Process
 
@@ -80,7 +72,7 @@ Wait for active shards.... response should look like
 - Migrate docs via bulk operations
   - Read all the docs in the old index (copy) to the new index
   - Do a scan on the source index and bulk import to the target index. Use [scrolling](https://www.elastic.co/guide/en/elasticsearch/reference/current/search-request-body.html#request-body-search-scroll).
-    - Require some form of bucketing because scoll may hold on to segments.
+    - Require some form of bucketing because scroll may hold on to segments.
     - Bulk is risky with few nodes
 - Change the index alias. Now all queries are served by the target index.
 - Turn off double writing.
@@ -88,6 +80,43 @@ Wait for active shards.... response should look like
 - Maintain the source index on disk for a full day, just in case.
 
 ## Maintenance
+
+### Change index resfresh interval
+
+```bash
+PUT /my_logs
+{
+  "settings": {
+    "refresh_interval": "30s" 
+  }
+}
+```
+
+#### Segment Throttling
+```bash
+PUT /_cluster/settings
+{
+    "persistent" : {
+        "indices.store.throttle.max_bytes_per_sec" : "100mb"
+    }       
+}
+```
+
+if we are doing bulk reindex and dont care about search at all
+```bash
+PUT /_cluster/settings
+{
+    "transient" : {
+        "indices.store.throttle.type" : "none"
+    } 
+}
+```
+
+#### [Restart]
+
+```bash
+maprcli node services -name elasticsearch -nodes <space separated list of Elasticsearch nodes> -action restart
+```
 
 #### Minor Elasticsearch upgrade to a new version. (See ansible dir)
 - Disable shard allocation on the cluster
@@ -98,6 +127,17 @@ Wait for active shards.... response should look like
 - Enable shard allocation on the cluster
 - Wait for the Elasticsearch cluster state to become green
 
+#### Change JVM settings
+- Disable shard allocation on the cluster
+- Run an index flush sync
+- Update the jvm settings
+- Restart the Elasticsearch process
+- Wait for the node to rejoin the cluster
+- Enable shard allocation on the cluster
+- Wait for the Elasticsearch cluster state to become green
+
+Also [see](https://www.elastic.co/guide/en/elasticsearch/reference/5.4/restart-upgrade.html)
+
 #### Restart of Elasticsearch process to set a new configuration in production.
 - Disable shard allocation on the cluster
 - Run an index flush sync
@@ -105,3 +145,16 @@ Wait for active shards.... response should look like
 - Wait for the node to rejoin the cluster
 - Enable shard allocation on the cluster
 - Wait for the Elasticsearch cluster state to become green
+
+## Questions
+
+Before resharding we must answer the following questions:
+- Index growth by size (how many new docs are created every day/week/month?)
+- Query volume, is this relatively constant? Do we expect it to grow in the future?
+- Using your own document id or letting Elasticsearch assign it automatically?
+- How has the index grown over time? It was mentioned you started adding more documents. How many were added, how quickly, - What is the refresh interval of the indices? Since we are doing a lot of updates, can we increase the refresh from default 1s to say... 30seconds? This can be done dynamically on a live index. At the very least this shuold be disabled during large indexes `-1` then when indexing is finished increase back to default.
+how much more growth do you expect?
+- When did you scale to four nodes?
+  - Raising the refresh interval will also help with the explosive creation of segments. Automatic refresh process creates a new segment every second. Then each search must check every segment (p 166)
+- Are we seeing this? Elasticsearch will log INFO-level messages stating now throttling indexing. If we're using SSDs we can increase the throttle from 20mb to 50 or 100 to trade   - We can use the optimize API but only if we stop updates on the index. (merges to a single segment.) (p 651, 595)
+CPU and merge segs faster
